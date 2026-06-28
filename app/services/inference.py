@@ -1,14 +1,17 @@
-"""
-Ollama Inference Service
-Sends the query to the selected model via Ollama's HTTP API.
-Handles streaming, timeouts, and fallback.
-"""
-
-import httpx
-import time
 from dataclasses import dataclass
+import time
+import os
 
-OLLAMA_BASE_URL = "http://localhost:11434"
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
+
+load_dotenv()
+
+client = AsyncOpenAI(
+    api_key=os.getenv("OTARI_API_KEY"),
+    base_url="https://api.otari.ai/v1",
+)
+
 
 @dataclass
 class InferenceResult:
@@ -20,64 +23,82 @@ class InferenceResult:
     success: bool
     error: str | None = None
 
-async def run_inference(model_tag: str, query: str, system_prompt: str = "") -> InferenceResult:
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": query})
 
-    payload = {
-        "model": model_tag,
-        "messages": messages,
-        "stream": False,
-        "options": {"temperature": 0.7, "num_predict": 2048},
-    }
+async def run_inference(
+    model_tag: str,
+    query: str,
+    system_prompt: str = ""
+) -> InferenceResult:
 
     start = time.monotonic()
+
+    messages = []
+
+    if system_prompt:
+        messages.append({
+            "role": "system",
+            "content": system_prompt
+        })
+
+    messages.append({
+        "role": "user",
+        "content": query
+    })
+
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
 
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        content = data.get("message", {}).get("content", "")
-        usage = data.get("usage", {})
+        response = await client.chat.completions.create(
+
+            model=model_tag,
+
+            messages=messages,
+
+            temperature=0.7,
+
+            max_tokens=2048,
+
+        )
+
+        elapsed = int((time.monotonic() - start) * 1000)
+
+        text = response.choices[0].message.content
+
+        usage = response.usage
 
         return InferenceResult(
-            response=content,
+
+            response=text,
+
             model_used=model_tag,
-            actual_tokens_in=usage.get("prompt_tokens", len(query.split()) + 10),
-            actual_tokens_out=usage.get("completion_tokens", len(content.split())),
-            actual_latency_ms=elapsed_ms,
+
+            actual_tokens_in=usage.prompt_tokens,
+
+            actual_tokens_out=usage.completion_tokens,
+
+            actual_latency_ms=elapsed,
+
             success=True,
+
         )
 
-    except httpx.ConnectError:
-        # Ollama not running — return a demo fallback so frontend still works
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        demo = (
-            f"[DEMO MODE — Ollama not running]\n\n"
-            f"Model '{model_tag}' would respond here. "
-            f"Start Ollama with `ollama serve` and pull the model with `ollama pull {model_tag}` to enable real inference."
-        )
-        return InferenceResult(
-            response=demo,
-            model_used=model_tag,
-            actual_tokens_in=len(query.split()),
-            actual_tokens_out=len(demo.split()),
-            actual_latency_ms=elapsed_ms,
-            success=False,
-            error="Ollama not running — demo mode active",
-        )
     except Exception as e:
-        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        elapsed = int((time.monotonic() - start) * 1000)
+
         return InferenceResult(
+
             response="",
+
             model_used=model_tag,
+
             actual_tokens_in=0,
+
             actual_tokens_out=0,
-            actual_latency_ms=elapsed_ms,
+
+            actual_latency_ms=elapsed,
+
             success=False,
+
             error=str(e),
+
         )
