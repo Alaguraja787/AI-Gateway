@@ -47,6 +47,10 @@ async def run_inference(
 
     try:
 
+        print("=" * 60)
+        print("MODEL SENT TO OTARI :", model_tag)
+        print("=" * 60)
+
         response = await client.chat.completions.create(
 
             model=model_tag,
@@ -82,7 +86,7 @@ async def run_inference(
         )
 
     except Exception as e:
-
+        print("OTARI ERROR :", e)
         elapsed = int((time.monotonic() - start) * 1000)
 
         return InferenceResult(
