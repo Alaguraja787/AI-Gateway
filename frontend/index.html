@@ -719,7 +719,7 @@
 </footer>
 
 <script>
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'https://ai-gateway-qx44qwho4-alaguraja698900-7347s-projects.vercel.app/api/v1';
 
 const PIPELINE_STEPS = ['Intent analysis','Security check','Capability estimation','Model selection','Inference','Response'];
 
@@ -1041,7 +1041,8 @@ function buildResultHTML(r) {
               <span>AI Response</span>
             </div>
             <div class="response-box" style="color:${r.inference_success?'var(--text)':'var(--red)'}">${escHtml(r.response)}</div>
-            ${r.error ? `<div style="margin-top:8px;font-size:11px;color:var(--amber)">ℹ ${r.error}</div>` : ''}
+            ${r.error ? `<div style
+            ="margin-top:8px;font-size:11px;color:var(--amber)">ℹ ${r.error}</div>` : ''}
           </div>
         </div>
         <div class="response-right">
