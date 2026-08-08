@@ -67,7 +67,11 @@ app.add_middleware(
 # ── Request ID + Latency Middleware ────────────────────────────────────────
 
 @app.middleware("http")
-async def request_middleware(request: Request, call_next) -> Response:
+async def request_middleware(
+    request: Request,
+    call_next,
+) -> Response:
+
     request_id = str(uuid.uuid4())[:8]
     request.state.request_id = request_id
     start = time.monotonic()
@@ -83,7 +87,10 @@ async def request_middleware(request: Request, call_next) -> Response:
 
     response = await call_next(request)
 
-    elapsed = round((time.monotonic() - start) * 1000, 1)
+    elapsed = round(
+        (time.monotonic() - start) * 1000,
+        1,
+    )
 
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Response-Time-Ms"] = str(elapsed)
@@ -103,8 +110,15 @@ async def request_middleware(request: Request, call_next) -> Response:
 # ── Global Exception Handler ───────────────────────────────────────────────
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    request_id = getattr(request.state, "request_id", "unknown")
+async def global_exception_handler(
+    request: Request,
+    exc: Exception,
+):
+    request_id = getattr(
+        request.state,
+        "request_id",
+        "unknown",
+    )
 
     logger.error(
         "Unhandled exception",
