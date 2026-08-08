@@ -18,22 +18,28 @@ from app.core.config import settings
 from app.core.logger import setup_logging
 
 
-
-
 # ── Logging ────────────────────────────────────────────────────────────────
+
 setup_logging()
 logger = logging.getLogger("nexus")
 
 
 # ── Lifespan ───────────────────────────────────────────────────────────────
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("NEXUS AI Engine starting up", extra={"version": settings.VERSION})
+    logger.info(
+        "NEXUS AI Engine starting up",
+        extra={"version": settings.VERSION},
+    )
+
     yield
+
     logger.info("NEXUS AI Engine shut down cleanly")
 
 
-# ── App ────────────────────────────────────────────────────────────────────
+# ── App ───────────────────────────────────────────────────────────────────
+
 app = FastAPI(
     title="NEXUS AI Orchestration Engine",
     description=(
@@ -46,7 +52,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
 # ── CORS ───────────────────────────────────────────────────────────────────
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -57,6 +65,7 @@ app.add_middleware(
 
 
 # ── Request ID + Latency Middleware ────────────────────────────────────────
+
 @app.middleware("http")
 async def request_middleware(request: Request, call_next) -> Response:
     request_id = str(uuid.uuid4())[:8]
@@ -73,6 +82,7 @@ async def request_middleware(request: Request, call_next) -> Response:
     )
 
     response = await call_next(request)
+
     elapsed = round((time.monotonic() - start) * 1000, 1)
 
     response.headers["X-Request-ID"] = request_id
@@ -86,31 +96,55 @@ async def request_middleware(request: Request, call_next) -> Response:
             "latency_ms": elapsed,
         },
     )
+
     return response
 
 
 # ── Global Exception Handler ───────────────────────────────────────────────
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "unknown")
+
     logger.error(
         "Unhandled exception",
-        extra={"request_id": request_id, "error": str(exc)},
+        extra={
+            "request_id": request_id,
+            "error": str(exc),
+        },
         exc_info=True,
     )
+
     return JSONResponse(
         status_code=500,
         content={
             "error": "Internal server error",
             "request_id": request_id,
-            "detail": str(exc) if settings.DEBUG else "Contact support with request ID",
+            "detail": (
+                str(exc)
+                if settings.DEBUG
+                else "Contact support with request ID"
+            ),
         },
     )
 
 
 # ── Routers ────────────────────────────────────────────────────────────────
-app.include_router(orchestrate.router, prefix="/api/v1", tags=["Orchestration"])
-app.include_router(models.router, prefix="/api/v1", tags=["Model Registry"])
-app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
+app.include_router(
+    orchestrate.router,
+    prefix="/api/v1",
+    tags=["Orchestration"],
+)
 
+app.include_router(
+    models.router,
+    prefix="/api/v1",
+    tags=["Model Registry"],
+)
+
+app.include_router(
+    health.router,
+    prefix="/api/v1",
+    tags=["Health"],
+)
